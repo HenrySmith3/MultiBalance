@@ -45,21 +45,17 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
 
     private BitmapTextureAtlas mBitmapTextureAtlas;
     private TextureRegion mPlayerTextureRegion;
+    private TextureRegion mBarTextureRegion;
     private Sprite player;
-
-    private Sound shootingSound;
-    private Music backgroundMusic;
+    private Sprite bar;
 
     private TextureRegion mTargetTextureRegion;
-    private LinkedList targetLL;
-    private LinkedList TargetsToBeAdded;
 
     private LinkedList projectileLL;
     private LinkedList projectilesToBeAdded;
     private TextureRegion mProjectileTextureRegion;
     private TextureRegion mPausedTextureRegion;
     private CameraScene mPauseScene;
-    private android.widget.Toast Toast;
 
     private CameraScene mResultScene;
     private boolean runningFlag = false;
@@ -110,6 +106,10 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
 
         mPlayerTextureRegion = BitmapTextureAtlasTextureRegionFactory
                 .createFromAsset(this.mBitmapTextureAtlas, this, "Player.png",
+                        0,0);
+
+        mBarTextureRegion = BitmapTextureAtlasTextureRegionFactory
+                .createFromAsset(this.mBitmapTextureAtlas, this, "bar.png",
                         0, 0);
         mEngine.getTextureManager().loadTexture(mBitmapTextureAtlas);
 
@@ -135,28 +135,6 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
                 Typeface.BOLD), 40, true, Color.BLACK);
         mEngine.getTextureManager().loadTexture(mFontTexture);
         mEngine.getFontManager().loadFont(mFont);
-
-        SoundFactory.setAssetBasePath("mfx/");
-        try {
-            shootingSound = SoundFactory.createSoundFromAsset(mEngine
-                    .getSoundManager(), this, "pew_pew_lei.wav");
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        MusicFactory.setAssetBasePath("mfx/");
-
-        try {
-            backgroundMusic = MusicFactory.createMusicFromAsset(mEngine
-                    .getMusicManager(), this, "background_music_aac.wav");
-            backgroundMusic.setLooping(true);
-        } catch (IllegalStateException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
@@ -170,13 +148,14 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         player = new Sprite(PlayerX, PlayerY, mPlayerTextureRegion);
         player.setScale(2);
 
+        bar = new Sprite((int)mCamera.getWidth()/2, (int)mCamera.getHeight()/2,mBarTextureRegion);
+
         mMainScene = new Scene();
         mMainScene
                 .setBackground(new ColorBackground(0.09804f, 0.6274f, 0.8784f));
 
         mMainScene.attachChild(player);
-        targetLL = new LinkedList();
-        TargetsToBeAdded = new LinkedList();
+        mMainScene.attachChild(bar);
 
         mMainScene.registerUpdateHandler(detect);
 
@@ -184,8 +163,6 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         projectilesToBeAdded = new LinkedList();
 
         mMainScene.setOnSceneTouchListener(this);
-
-        backgroundMusic.play();
 
         mPauseScene = new CameraScene(mCamera);
         final int x = (int) (mCamera.getWidth() / 2 - mPausedTextureRegion
@@ -213,153 +190,20 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
 
     @Override
     public void onLoadComplete() {
-        createSpriteSpawnTimeHandler();
-    }
 
-    public void addTarget() {
-        Random rand = new Random();
-
-        int x = (int) mCamera.getWidth() + mTargetTextureRegion.getWidth();
-        int minY = mTargetTextureRegion.getHeight();
-        int maxY = (int) (mCamera.getHeight() - mTargetTextureRegion
-                .getHeight());
-        int rangeY = maxY - minY;
-        int y = rand.nextInt(rangeY) + minY;
-
-        Sprite target = new Sprite(x, y, mTargetTextureRegion.deepCopy());
-        mMainScene.attachChild(target);
-
-        int minDuration = 2;
-        int maxDuration = 4;
-        int rangeDuration = maxDuration - minDuration;
-        int actualDuration = rand.nextInt(rangeDuration) + minDuration;
-
-        MoveXModifier mod = new MoveXModifier(actualDuration, target.getX(),
-                -target.getWidth());
-        target.registerEntityModifier(mod.deepCopy());
-
-        TargetsToBeAdded.add(target);
-
-    }
-
-    private void shootProjectile(final float pX, final float pY) {
-
-        int offX = (int) (pX - player.getX());
-        int offY = (int) (pY - player.getY());
-        if (offX <= 0)
-            return;
-
-        final Sprite projectile;
-        projectile = new Sprite(player.getX(), player.getY(),
-                mProjectileTextureRegion.deepCopy());
-        mMainScene.attachChild(projectile, 1);
-
-        int realX = (int) (mCamera.getWidth() + projectile.getWidth() / 2.0f);
-        float ratio = (float) offY / (float) offX;
-        int realY = (int) ((realX * ratio) + projectile.getY());
-
-        int offRealX = (int) (realX - projectile.getX());
-        int offRealY = (int) (realY - projectile.getY());
-        float length = (float) Math.sqrt((offRealX * offRealX)
-                + (offRealY * offRealY));
-        float velocity = 480.0f / 1.0f; // 480 pixels / 1 sec
-        float realMoveDuration = length / velocity;
-
-        MoveModifier mod = new MoveModifier(realMoveDuration,
-                projectile.getX(), realX, projectile.getY(), realY);
-        projectile.registerEntityModifier(mod.deepCopy());
-
-        projectilesToBeAdded.add(projectile);
-
-        shootingSound.play();
-    }
-
-    private void createSpriteSpawnTimeHandler() {
-        TimerHandler spriteTimerHandler;
-        float mEffectSpawnDelay = 1f;
-
-        spriteTimerHandler = new TimerHandler(mEffectSpawnDelay, true,
-                new ITimerCallback() {
-
-                    @Override
-                    public void onTimePassed(TimerHandler pTimerHandler) {
-                        addTarget();
-                    }
-                });
-
-        getEngine().registerUpdateHandler(spriteTimerHandler);
-    }
-
-    public void removeSprite(final Sprite _sprite, Iterator it) {
-        runOnUpdateThread(new Runnable() {
-
-            @Override
-            public void run() {
-                mMainScene.detachChild(_sprite);
-            }
-        });
-        it.remove();
     }
 
     IUpdateHandler detect = new IUpdateHandler() {
         @Override
-        public void reset() {
+        public void onUpdate(float v) {
+            //To change body of implemented methods use File | Settings | File Templates.
         }
 
         @Override
-        public void onUpdate(float pSecondsElapsed) {
-
-            Iterator<Sprite> targets = targetLL.iterator();
-            Sprite _target;
-            boolean hit = false;
-
-            while (targets.hasNext()) {
-                _target = targets.next();
-
-                if (_target.getX() <= -_target.getWidth()) {
-                    removeSprite(_target, targets);
-                    fail();
-                    break;
-                }
-                Iterator<Sprite> projectiles = projectileLL.iterator();
-                Sprite _projectile;
-                while (projectiles.hasNext()) {
-                    _projectile = projectiles.next();
-
-                    if (_projectile.getX() >= mCamera.getWidth()
-                            || _projectile.getY() >= mCamera.getHeight()
-                            + _projectile.getHeight()
-                            || _projectile.getY() <= -_projectile.getHeight()) {
-                        removeSprite(_projectile, projectiles);
-                        continue;
-                    }
-
-                    if (_target.collidesWith(_projectile)) {
-                        removeSprite(_projectile, projectiles);
-                        hit = true;
-                        break;
-                    }
-                }
-
-                if (hit) {
-                    removeSprite(_target, targets);
-                    hit = false;
-                    hitCount++;
-                    score.setText(String.valueOf(hitCount));
-                }
-
-                if (hitCount >= maxScore) {
-                    win();
-                }
-
-            }
-            projectileLL.addAll(projectilesToBeAdded);
-            projectilesToBeAdded.clear();
-
-            targetLL.addAll(TargetsToBeAdded);
-            TargetsToBeAdded.clear();
+        public void reset() {
         }
     };
+
 
     @Override
     public boolean onSceneTouchEvent(Scene pScene, TouchEvent pSceneTouchEvent) {
@@ -367,65 +211,9 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         if (pSceneTouchEvent.getAction() == TouchEvent.ACTION_DOWN) {
             final float touchX = pSceneTouchEvent.getX();
             final float touchY = pSceneTouchEvent.getY();
-            shootProjectile(touchX, touchY);
             return true;
         }
         return false;
-    }
-
-    @Override
-    public boolean onKeyDown(final int pKeyCode, final KeyEvent pEvent) {
-        if (pKeyCode == KeyEvent.KEYCODE_MENU
-                && pEvent.getAction() == KeyEvent.ACTION_DOWN) {
-            if (mEngine.isRunning() && backgroundMusic.isPlaying()) {
-                pauseMusic();
-                pauseFlag = true;
-                pauseGame();
-                Toast.makeText(this, "Menu button to resume",
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                if (!backgroundMusic.isPlaying()) {
-                    unPauseGame();
-                    pauseFlag = false;
-                    resumeMusic();
-                    mEngine.start();
-                }
-                return true;
-            }
-        } else if (pKeyCode == KeyEvent.KEYCODE_BACK
-                && pEvent.getAction() == KeyEvent.ACTION_DOWN) {
-
-            if (!mEngine.isRunning() && backgroundMusic.isPlaying()) {
-                mMainScene.clearChildScene();
-                mEngine.start();
-                restart();
-                return true;
-            }
-            return super.onKeyDown(pKeyCode, pEvent);
-        }
-        return super.onKeyDown(pKeyCode, pEvent);
-    }
-
-    public void pauseGame() {
-        mMainScene.setChildScene(mPauseScene, false, true, true);
-        mEngine.stop();
-    }
-
-    public void unPauseGame() {
-        mMainScene.clearChildScene();
-        mEngine.start();
-    }
-
-    public void pauseMusic() {
-        if (runningFlag)
-            if (backgroundMusic.isPlaying())
-                backgroundMusic.pause();
-    }
-
-    public void resumeMusic() {
-        if (runningFlag)
-            if (!backgroundMusic.isPlaying())
-                backgroundMusic.resume();
     }
 
     public void restart() {
@@ -444,8 +232,6 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         score.setText(String.valueOf(hitCount));
         projectileLL.clear();
         projectilesToBeAdded.clear();
-        TargetsToBeAdded.clear();
-        targetLL.clear();
     }
 
     public void fail() {
@@ -466,33 +252,5 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         }
     }
 
-    @Override
-    public void onResumeGame() {
-        super.onResumeGame();
-        if (runningFlag) {
-            if (pauseFlag) {
-                pauseFlag = false;
-                Toast.makeText(this, "Menu button to resume",
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                resumeMusic();
-                mEngine.stop();
-            }
-        } else {
-            runningFlag = true;
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        if (runningFlag) {
-            pauseMusic();
-            if (mEngine.isRunning()) {
-                pauseGame();
-                pauseFlag = true;
-            }
-        }
-        super.onPause();
-    }
 
 }
