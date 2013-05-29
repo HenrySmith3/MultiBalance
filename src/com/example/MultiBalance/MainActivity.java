@@ -3,6 +3,10 @@ package com.example.MultiBalance;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.view.Display;
 import android.view.KeyEvent;
@@ -31,6 +35,8 @@ import org.anddev.andengine.opengl.texture.TextureOptions;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
+import org.anddev.andengine.sensor.accelerometer.AccelerometerData;
+import org.anddev.andengine.sensor.accelerometer.IAccelerometerListener;
 import org.anddev.andengine.ui.activity.BaseGameActivity;
 
 import java.io.IOException;
@@ -38,7 +44,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Random;
 
-public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouchListener {
+public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouchListener, SensorEventListener {
 
     private Camera mCamera;
     private Scene mMainScene;
@@ -46,14 +52,14 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     private BitmapTextureAtlas mBitmapTextureAtlas;
     private TextureRegion mPlayerTextureRegion;
     private TextureRegion mBarTextureRegion;
-    private Sprite player;
+    //private Sprite player;
     private Sprite bar;
 
     private TextureRegion mTargetTextureRegion;
 
-    private LinkedList projectileLL;
-    private LinkedList projectilesToBeAdded;
-    private TextureRegion mProjectileTextureRegion;
+    //private LinkedList projectileLL;
+    //private LinkedList projectilesToBeAdded;
+    //private TextureRegion mProjectileTextureRegion;
     private TextureRegion mPausedTextureRegion;
     private CameraScene mPauseScene;
 
@@ -69,6 +75,10 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     private Sprite failSprite;
     private TextureRegion mWinTextureRegion;
     private TextureRegion mFailTextureRegion;
+
+    private float rotation;
+
+    private SensorManager sensorManager;
 
     /**
      * Called when the activity is first created.
@@ -113,9 +123,9 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
                         0, 0);
         mEngine.getTextureManager().loadTexture(mBitmapTextureAtlas);
 
-        mProjectileTextureRegion = BitmapTextureAtlasTextureRegionFactory
-                .createFromAsset(this.mBitmapTextureAtlas, this,
-                        "Projectile.png", 64, 0);
+       // mProjectileTextureRegion = BitmapTextureAtlasTextureRegionFactory
+       //         .createFromAsset(this.mBitmapTextureAtlas, this,
+      //                  "Projectile.png", 64, 0);
 
         mPausedTextureRegion = BitmapTextureAtlasTextureRegionFactory
                 .createFromAsset(this.mBitmapTextureAtlas, this, "paused.png",
@@ -141,26 +151,27 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     public Scene onLoadScene() {
         mEngine.registerUpdateHandler(new FPSLogger());
 
-        final int PlayerX = this.mPlayerTextureRegion.getWidth() / 2;
-        final int PlayerY = (int) ((mCamera.getHeight() - mPlayerTextureRegion
-                .getHeight()) / 2);
+        final int barX = (int) ((mCamera.getWidth() - mBarTextureRegion.getWidth()) / 2);
+        final int barY = (int) ((mCamera.getHeight() - mBarTextureRegion.getHeight()) / 2);
 
-        player = new Sprite(PlayerX, PlayerY, mPlayerTextureRegion);
-        player.setScale(2);
+        //player = new Sprite(PlayerX, PlayerY, mPlayerTextureRegion);
+        //player.setScale(2);
 
-        bar = new Sprite((int)mCamera.getWidth()/2, (int)mCamera.getHeight()/2,mBarTextureRegion);
+        bar = new Sprite(barX, barY, mBarTextureRegion);
+        bar.setScale(4,2.5f);
+
 
         mMainScene = new Scene();
         mMainScene
                 .setBackground(new ColorBackground(0.09804f, 0.6274f, 0.8784f));
 
-        mMainScene.attachChild(player);
+        //mMainScene.attachChild(player);
         mMainScene.attachChild(bar);
 
         mMainScene.registerUpdateHandler(detect);
 
-        projectileLL = new LinkedList();
-        projectilesToBeAdded = new LinkedList();
+        //projectileLL = new LinkedList();
+        //projectilesToBeAdded = new LinkedList();
 
         mMainScene.setOnSceneTouchListener(this);
 
@@ -182,8 +193,14 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
 
         winSprite.setVisible(false);
         failSprite.setVisible(false);
-        score = new ChangeableText(0, 0, mFont, String.valueOf(maxScore));
-        score.setPosition(mCamera.getWidth() - score.getWidth() - 5, 5);
+        score = new ChangeableText(0, 0, mFont, "ButtsButtsButts");
+        score.setPosition(5,5);//mCamera.getWidth() - score.getWidth() - 5, 5);
+        score.setWidth(2000);
+        mMainScene.attachChild(score);
+
+        sensorManager = (SensorManager) this.getSystemService(this.SENSOR_SERVICE);
+        sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), 1);
+
 
         return mMainScene;
     }
@@ -211,6 +228,7 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         if (pSceneTouchEvent.getAction() == TouchEvent.ACTION_DOWN) {
             final float touchX = pSceneTouchEvent.getX();
             final float touchY = pSceneTouchEvent.getY();
+
             return true;
         }
         return false;
@@ -223,15 +241,15 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
             @Override
             public void run() {
                 mMainScene.detachChildren();
-                mMainScene.attachChild(player, 0);
+                //mMainScene.attachChild(player, 0);
                 mMainScene.attachChild(score);
             }
         });
 
         hitCount = 0;
         score.setText(String.valueOf(hitCount));
-        projectileLL.clear();
-        projectilesToBeAdded.clear();
+        //projectileLL.clear();
+        //projectilesToBeAdded.clear();
     }
 
     public void fail() {
@@ -253,4 +271,19 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     }
 
 
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() != Sensor.TYPE_ROTATION_VECTOR)
+            return;
+        float mSensorX = 0, mSensorY = 0, mSensorZ = 0;
+        rotation -= event.values[1];//it's dumb, just go with it.
+        score.setText(""+rotation);
+        bar.setRotation(rotation);
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
 }
