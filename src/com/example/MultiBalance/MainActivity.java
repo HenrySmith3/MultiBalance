@@ -52,8 +52,11 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     private BitmapTextureAtlas mBitmapTextureAtlas;
     private TextureRegion mPlayerTextureRegion;
     private TextureRegion mBarTextureRegion;
+    private TextureRegion mBallTextureRegion;
     //private Sprite player;
     private Sprite bar;
+    private Sprite ball;
+    private int ballX;
 
     private TextureRegion mTargetTextureRegion;
 
@@ -121,6 +124,9 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         mBarTextureRegion = BitmapTextureAtlasTextureRegionFactory
                 .createFromAsset(this.mBitmapTextureAtlas, this, "bar.png",
                         0, 0);
+        mBallTextureRegion = BitmapTextureAtlasTextureRegionFactory
+                .createFromAsset(this.mBitmapTextureAtlas, this, "ball.png",
+                        0, 0);
         mEngine.getTextureManager().loadTexture(mBitmapTextureAtlas);
 
        // mProjectileTextureRegion = BitmapTextureAtlasTextureRegionFactory
@@ -152,6 +158,7 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         mEngine.registerUpdateHandler(new FPSLogger());
 
         final int barX = (int) ((mCamera.getWidth() - mBarTextureRegion.getWidth()) / 2);
+        ballX = barX;
         final int barY = (int) ((mCamera.getHeight() - mBarTextureRegion.getHeight()) / 2);
 
         //player = new Sprite(PlayerX, PlayerY, mPlayerTextureRegion);
@@ -160,6 +167,9 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
         bar = new Sprite(barX, barY, mBarTextureRegion);
         bar.setScale(4,2.5f);
 
+        ball = new Sprite(ballX, barY+bar.getHeight(), mBallTextureRegion);
+        ball.setScale(2.5f);
+
 
         mMainScene = new Scene();
         mMainScene
@@ -167,6 +177,7 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
 
         //mMainScene.attachChild(player);
         mMainScene.attachChild(bar);
+        mMainScene.attachChild(ball);
 
         mMainScene.registerUpdateHandler(detect);
 
@@ -241,15 +252,12 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
             @Override
             public void run() {
                 mMainScene.detachChildren();
-                //mMainScene.attachChild(player, 0);
                 mMainScene.attachChild(score);
             }
         });
 
         hitCount = 0;
         score.setText(String.valueOf(hitCount));
-        //projectileLL.clear();
-        //projectilesToBeAdded.clear();
     }
 
     public void fail() {
@@ -276,10 +284,11 @@ public class MainActivity extends BaseGameActivity implements Scene.IOnSceneTouc
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_ROTATION_VECTOR)
             return;
-        float mSensorX = 0, mSensorY = 0, mSensorZ = 0;
         rotation -= event.values[1];//it's dumb, just go with it.
         score.setText(""+rotation);
         bar.setRotation(rotation);
+        ballX += rotation/100;
+        ball.setPosition(ballX, ball.getY());
     }
 
     @Override
